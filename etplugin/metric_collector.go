@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/intelsdi-x/pulse-plugin-collector-ixgbe/ethtool"
+	"github.com/intelsdi-x/snap-plugin-collector-ethtool/ethtool"
 )
 
 type metricCollector interface {

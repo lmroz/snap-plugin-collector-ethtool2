@@ -20,15 +20,15 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/intelsdi-x/pulse/control/plugin"
-	"github.com/intelsdi-x/pulse/control/plugin/cpolicy"
+	"github.com/intelsdi-x/snap/control/plugin"
+	"github.com/intelsdi-x/snap/control/plugin/cpolicy"
 
-	"github.com/intelsdi-x/pulse-plugin-collector-ixgbe/ethtool"
+	"github.com/intelsdi-x/snap-plugin-collector-ethtool/ethtool"
 )
 
 const (
 	// Name of plugin
-	Name = "ixgbe"
+	Name = "ethtool"
 	// Version of plugin
 	Version = 1
 	// Type of plugin
@@ -137,5 +137,5 @@ func NewIXGBECollector() *IXGBEPlugin {
 
 // Returns plugin's metadata
 func Meta() *plugin.PluginMeta {
-	return plugin.NewPluginMeta(Name, Version, Type, []string{plugin.PulseGOBContentType}, []string{plugin.PulseGOBContentType})
+	return plugin.NewPluginMeta(Name, Version, Type, []string{plugin.SnapGOBContentType}, []string{plugin.SnapGOBContentType})
 }
