@@ -39,7 +39,7 @@ Fork https://github.com/intelsdi-x/snap-plugin-collector-ethtool
 Clone repo into `$GOPATH/src/github.com/intelsdi-x/`:
 
 ```
-$ git clone https://github.com/<yourGithubID>/snap-plugin-collector-psutil.git
+$ git clone https://github.com/<yourGithubID>/snap-plugin-collector-ethtool.git
 ```
 
 Build the plugin by running make within the cloned repo:
