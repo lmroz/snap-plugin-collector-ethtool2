@@ -1,6 +1,4 @@
-# Snap Collector Plugin - Ethtool
-
-Plugin for collecting data from network interfaces using ethtool.
+# snap collector plugin - ethtool
 
 1. [Contributing Code](#contributing-code)
 2. [Contributing Examples](#contributing-examples)
@@ -21,10 +19,14 @@ Thank you for being part of the community! We love you for it.
 Once you're ready to contribute code back to this repo, start with these steps:
 
 * Fork the appropriate sub-projects that are affected by your change
+* Clone the fork to `$GOPATH/src/github.com/intelsdi-x/`  
+	```
+	$ git clone https://github.com/<yourGithubID>/<project>.git
+	```
 * Create a topic branch for your change and checkout that branch  
-     ```
-     $ git checkout -b some-topic-branch
-     ```
+    ```
+    $ git checkout -b some-topic-branch
+    ```
 * Make your changes and run the test suite if one is provided (see below)
 * Commit your changes and push them to your fork
 * Open a pull request for the appropriate project
@@ -42,7 +44,7 @@ The most immediately helpful way you can benefit this project is by cloning the 
 Have you written a blog post about how you use $PROJECT? Send it to us!
 
 ## Contribute Elsewhere
-This repository is one of **many** plugins in the **Snap Framework**: a powerful telemetry agent framework. See the full project at http://github.com/intelsdi-x/snap
+This repository is one of **many** plugins in **snap**, a powerful telemetry framework. See the full project at http://github.com/intelsdi-x/snap
 
 ## Thank You
-And **thank you!** Your contribution is incredibly important to us.
+And **thank you!** Your contribution, through code and participation, is incredibly important to us.
