@@ -15,13 +15,16 @@ limitations under the License.
 package etplugin
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"strconv"
+
+	"strings"
 	"time"
 
 	"github.com/intelsdi-x/snap/control/plugin"
 	"github.com/intelsdi-x/snap/control/plugin/cpolicy"
+	//"github.com/intelsdi-x/snap-plugin-utilities/config"
 
 	"github.com/intelsdi-x/snap-plugin-collector-ethtool/ethtool"
 )
@@ -35,21 +38,39 @@ const (
 	Type = plugin.CollectorPluginType
 )
 
+const (
+	statNicLabel = "nic"
+	statRegLabel = "reg"
+)
+
 var namespacePrefix = []string{"intel", "net"}
 
-func makeName(device, metric string) []string {
-	result := []string{}
-	result = append(result, namespacePrefix...)
-	result = append(result, device, metric)
-	return result
-
+type collectInfo struct {
+	collect_s bool // execute "ethtool -S"; NIC statistics
+	collect_d bool // execute "ethtool -d"; Register statistics (register dump)
 }
 
-// performs reverse operation to make name, extracts device
-// and metric from namespace
-func parseName(ns []string) (device, metric string) {
-	return ns[len(namespacePrefix)], ns[len(namespacePrefix)+1]
+// makeName creates metrics namespace includes device(contains driver info), type of metrics and metric name
+func makeName(device, typeOf, metric string) []string {
+	ns := append(namespacePrefix, strings.Split(device, "/")...)
+	ns = append(ns, typeOf)
+	ns = append(ns, strings.Split(metric, "/")...)
+	return ns
+}
 
+// parseName performs reverse operation to make name, extracts driver, device, type of metric (eg. nic statistics or register dump)
+// and metric name from namespace
+func parseName(ns []string) (driver, device, typeOf, metric string) {
+	if len(ns) < len(namespacePrefix)+4 {
+		panic("Cannot parse metric namespace")
+	}
+
+	return ns[len(namespacePrefix)], ns[len(namespacePrefix)+1], ns[len(namespacePrefix)+2], joinNamespace(ns[len(namespacePrefix)+3:])
+}
+
+// joinNamespace concatenates the elements of `ns` to create a single string with slash as the separator between elements in the resulting string.
+func joinNamespace(ns []string) string {
+	return strings.Join(ns, "/")
 }
 
 // Plugin's main class.
@@ -57,63 +78,110 @@ type IXGBEPlugin struct {
 	mc metricCollector
 }
 
-// Retrieves values for given metrics.
-// Asks each device only once about it's metrics.
-func (p *IXGBEPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.PluginMetricType, error) {
-	iset := map[string]bool{}
+// setMetricType returns map of interfaces with information about what type of statistics are desired to be collected.
+// That indicate ethtool command arguments to execute.
+func setMetricType(mts []plugin.PluginMetricType) map[string]*collectInfo {
+
+	isetMt := make(map[string]*collectInfo)
+
 	for _, mt := range mts {
-		dev, _ := parseName(mt.Namespace())
-		iset[dev] = true
+
+		// retrive info about stat type from metric namespace
+		_, dev, typeOf, _ := parseName(mt.Namespace())
+
+		// set items defaults to false if not initialized before
+		if isetMt[dev] == nil {
+
+			isetMt[dev] = &collectInfo{collect_s: false, collect_d: false}
+		}
+
+		switch typeOf {
+		case statNicLabel: // type of stats indicates nic stats, set collect_s true
+			isetMt[dev].collect_s = true
+			break
+
+		case statRegLabel: // type of stats indicates reg dump stats, set collect_d true
+			isetMt[dev].collect_d = true
+			break
+
+		default: // unrecognize type of metric, exit function with nil map
+			return nil
+		}
 	}
-	metrics, err := p.mc.CollectMetrics(iset)
+
+	return isetMt
+}
+
+// CollectMetrics retrieves values for given metrics
+func (p *IXGBEPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.PluginMetricType, error) {
+
+	// with which interfaces and what type of statistics are desired to be collected; avoid unnecessary ethtool -d command execution
+	iset := setMetricType(mts)
+
+	if iset == nil {
+		return nil, errors.New("Unrecognize type of metric and ethtool command options to execute")
+	}
+
+	metrics, err := p.mc.Collect(iset)
 	if err != nil {
 		return nil, err
 	}
 
-	// it's not worth to abort collection
-	// when only os.Hostname() raised error
+	// it's not worth to abort collection when only os.Hostname() raised error
 	host, _ := os.Hostname()
 	t := time.Now()
 
 	results := make([]plugin.PluginMetricType, len(mts))
 
 	for i, mt := range mts {
-		dev, metric := parseName(mt.Namespace())
-		val, ok := metrics[dev+"/"+metric]
+		_, dev, typeOf, metric := parseName(mt.Namespace())
+		ns := joinNamespace([]string{dev, typeOf, metric})
+		val, ok := metrics[ns]
 		if !ok {
-			return nil, fmt.Errorf("unknown stat: %s on interface %s", metric, dev)
-		}
-
-		vInt, err := strconv.ParseInt(val, 10, 64)
-
-		if err != nil {
-			return nil, fmt.Errorf("incorrect metric value: %s = %s", metric, val)
+			return nil, fmt.Errorf("unknown %s stat: %s on interface %s", typeOf, metric, dev)
 		}
 
 		results[i] = plugin.PluginMetricType{
 			Namespace_: mt.Namespace(),
-			Data_:      vInt,
+			Data_:      val,
 			Source_:    host,
 			Timestamp_: t,
 		}
-
 	}
 
 	return results, nil
 }
 
-// Returns list of metrics.
-// Metrics are put in namespaces {"intel", "net", INTERFACE, metrics...}
-func (p *IXGBEPlugin) GetMetricTypes(_ plugin.PluginConfigType) ([]plugin.PluginMetricType, error) {
+// GetMetricTypes returns list of metrics. Metrics are put in namespaces {"intel", "net", DRIVER, INTERFACE, metrics...}
+func (p *IXGBEPlugin) GetMetricTypes(cfg plugin.PluginConfigType) ([]plugin.PluginMetricType, error) {
 	mts := []plugin.PluginMetricType{}
+	tags := map[string]string{}
+
+	// metrics from command `ethtool -S <interface>`
 	valid, err := p.mc.ValidMetrics()
 	if err != nil {
 		return nil, err
 	}
+
 	for dev, metrics := range valid {
 		for _, metric := range metrics {
-			ns := makeName(dev, metric)
-			mts = append(mts, plugin.PluginMetricType{Namespace_: ns})
+			ns := makeName(dev, statNicLabel, metric)
+			tags["driver"], _, _, _ = parseName(ns)
+			mts = append(mts, plugin.PluginMetricType{Namespace_: ns, Tags_: tags})
+		}
+	}
+
+	// register dump raw metrics from command `ethtool -d <interface>`
+	validRegDump, err := p.mc.ValidRegDumpMetrics()
+	if err != nil {
+		return nil, err
+	}
+
+	for dev, metrics := range validRegDump {
+		for _, metric := range metrics {
+			ns := makeName(dev, statRegLabel, metric)
+			tags["driver"], _, _, _ = parseName(ns)
+			mts = append(mts, plugin.PluginMetricType{Namespace_: ns, Tags_: tags})
 		}
 	}
 

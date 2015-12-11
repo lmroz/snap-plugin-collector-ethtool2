@@ -22,6 +22,8 @@ type Executor interface {
 // Performs data collection from given interface
 type Collector interface {
 	GetStats(iface string) (map[string]string, error)
+	GetRegDump(iface string) (map[string]string, error)
+	GetDriverInfo(iface string) (string, error)
 }
 
 // Executes ethtool on local machine

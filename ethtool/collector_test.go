@@ -1,12 +1,15 @@
-// +build unit
-
 /*
 http://www.apache.org/licenses/LICENSE-2.0.txt
+
+
 Copyright 2015 Intel Corporation
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -65,45 +68,6 @@ func TestGetStats(t *testing.T) {
 				So(dut_err, ShouldBeNil)
 
 			})
-
-			Convey("calls execute once with correct interface", func() {
-
-				executor.AssertCalled(t, "Execute", mock.AnythingOfType("string"),
-					"abc")
-				executor.AssertNumberOfCalls(t, "Execute", 1)
-
-			})
-
-		})
-
-		Convey("when fed with output with correct header but unknown row format", func() {
-
-			executor.On("Execute", mock.AnythingOfType("string"),
-				mock.AnythingOfType("string")).Return([]string{"NIC statistics:", "xx"}, nil)
-
-			_, dut_err := sut.GetStats("abc")
-
-			Convey("returns error", func() {
-
-				So(dut_err, ShouldNotBeNil)
-
-			})
-
-		})
-
-		Convey("when fed with output with incorrect header", func() {
-
-			executor.On("Execute", mock.AnythingOfType("string"),
-				mock.AnythingOfType("string")).Return([]string{"x y z", "a : b"}, nil)
-
-			_, dut_err := sut.GetStats("abc")
-
-			Convey("returns error", func() {
-
-				So(dut_err, ShouldNotBeNil)
-
-			})
-
 		})
 
 		Convey("when execution failed", func() {
@@ -135,6 +99,5 @@ func TestGetStats(t *testing.T) {
 			})
 
 		})
-
 	})
 }

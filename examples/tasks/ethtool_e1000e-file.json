@@ -1,0 +1,79 @@
+{
+    "version": 1,
+    "schedule": {
+        "type": "simple",
+        "interval": "1s"
+    },
+    "workflow": {
+        "collect": {
+            "metrics": {
+				"/intel/net/e1000e/eno1/reg/CTRL": {},				
+				"/intel/net/e1000e/eno1/reg/RCTL": {},
+				"/intel/net/e1000e/eno1/reg/RDH": {},
+				"/intel/net/e1000e/eno1/reg/RDLEN": {},
+				"/intel/net/e1000e/eno1/reg/RDT": {},                          
+				"/intel/net/e1000e/eno1/reg/RDTR": {},				
+				"/intel/net/e1000e/eno1/reg/STATUS": {},				
+				"/intel/net/e1000e/eno1/reg/TCTL": {},				
+				"/intel/net/e1000e/eno1/reg/TDH": {},				
+				"/intel/net/e1000e/eno1/reg/TDLEN": {},				
+				"/intel/net/e1000e/eno1/reg/TDT": {},				
+				"/intel/net/e1000e/eno1/reg/TIDV": {},				
+				"/intel/net/e1000e/eno1/reg/auto_speed_detect": {},				
+				"/intel/net/e1000e/eno1/reg/broadcast_accept_mode": {},				
+				"/intel/net/e1000e/eno1/reg/bus_speed": {},				
+				"/intel/net/e1000e/eno1/reg/bus_type": {},				
+				"/intel/net/e1000e/eno1/reg/canonical_form_indicator": {},				
+				"/intel/net/e1000e/eno1/reg/discard_pause_frames": {},				
+				"/intel/net/e1000e/eno1/reg/duplex": {},				
+				"/intel/net/e1000e/eno1/reg/endian_mode": {},				
+				"/intel/net/e1000e/eno1/reg/force_duplex": {},				
+				"/intel/net/e1000e/eno1/reg/force_speed": {},				
+				"/intel/net/e1000e/eno1/reg/invert_loss-of-signal": {},				
+				"/intel/net/e1000e/eno1/reg/link_reset": {},				
+				"/intel/net/e1000e/eno1/reg/link_speed": {},				
+				"/intel/net/e1000e/eno1/reg/long_packet": {},				
+				"/intel/net/e1000e/eno1/reg/multicast_promiscuous": {},				
+				"/intel/net/e1000e/eno1/reg/pad_short_packets": {},				
+				"/intel/net/e1000e/eno1/reg/phy_type": {},				
+				"/intel/net/e1000e/eno1/reg/re-transmit_on_late_collision": {},				
+				"/intel/net/e1000e/eno1/reg/receive_buffer_size": {},				
+				"/intel/net/e1000e/eno1/reg/receive_flow_control": {},				
+				"/intel/net/e1000e/eno1/reg/receiver": {},				
+				"/intel/net/e1000e/eno1/reg/set_link_up": {},				
+				"/intel/net/e1000e/eno1/reg/software_xoff_transmission": {},				
+				"/intel/net/e1000e/eno1/reg/speed_select": {},				
+				"/intel/net/e1000e/eno1/reg/store_bad_packets": {},				
+				"/intel/net/e1000e/eno1/reg/tbi_mode": {},				
+				"/intel/net/e1000e/eno1/reg/transmit_flow_control": {},				
+				"/intel/net/e1000e/eno1/reg/transmitter": {},				
+				"/intel/net/e1000e/eno1/reg/unicast_promiscuous": {},				
+				"/intel/net/e1000e/eno1/reg/vlan_filter": {},			
+				"/intel/net/e1000e/eno1/reg/vlan_mode": {},            
+				"/intel/net/e1000e/eno1/nic/rx_bytes": {},
+				"/intel/net/e1000e/eno1/nic/rx_errors": {},
+				"/intel/net/e1000e/eno1/nic/tx_bytes": {},
+				"/intel/net/e1000e/eno1/nic/tx_timeout_count": {},
+				"/intel/net/e1000e/eno1/nic/rx_errors": {},
+				"/intel/net/e1000e/eno1/nic/tx_bytes": {},
+				"/intel/net/e1000e/eno1/nic/tx_errors": {}	
+            },
+            "config": {
+                "/intel/net": {
+                    "user": "root",
+                    "password": "secret"
+                }
+            },
+            "process": null,
+            "publish": [
+                {
+                    "plugin_name": "file",
+                    "plugin_version": 3,
+                    "config": {
+                        "file": "/tmp/published_ethtool_reg_dump"
+                    }
+                }
+            ]
+        }
+    }
+}

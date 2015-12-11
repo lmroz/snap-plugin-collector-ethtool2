@@ -1,6 +1,6 @@
-# Snap Collector Plugin - Ethtool
+# snap collector plugin - ethtool
 
-This plugin uses ethtool to gather interface statistics. Current version exposes stats available using `ethtool -S` command.
+This plugin uses ethtool to gather interface statistics. 																						Current version exposes stats available using `ethtool -S` and `ethtool -d` command.
 
 1. [Getting Started](#getting-started)
   * [System Requirements](#system-requirements)
@@ -34,24 +34,38 @@ The plugin is ready to use out of the box. You don't have to perform any configu
 You can learn about some of exposed metrics [here](https://www.myricom.com/software/myri10ge/397-could-you-explain-the-meanings-of-the-myri10ge-counters-reported-in-the-output-of-ethtool.html)
 
 ### Collected Metrics
+This plugin allows to collect interface network statistics such like received|transmitted bytes|packets and more.                                                                                                    
 List of metrics for each device is dependent on it's driver.
-Metrics are available in namespace `/intel/net/<device name>/<metric name>` and all are `int`'s.
+
+This plugin has the ability to gather the following metrics (driver specific):
+* [for driver E1000E](MTS_E1000E.md)
+* [for driver IXGBE](MTS_IXGBE.md)
+* [for driver FM10K](MTS_FM10K.md)
+* [for driver TG3](MTS_TG3.md)
+
+Metrics are available in namespace: 
+*	`/intel/net/<driver name>/<device name>/nic/<metric name>` (from cmd `ethtool -S`)
+*	`/intel/net/<driver name>/<device name>/reg/<metric name>` (from cmd `ethtool -d`, register dump)
+
+By default metrics are gathered once per second.
 
 ### Roadmap
 As we launch this plugin, we have a few items in mind for the next release:
 
-* Metrics from device's registry dump when using IXGBE driver
+- [ x ] Metrics from device's registry dump when using IXGBE driver
+- [   ] Expose pluggable optics (SFP & QSFP) information
+
+If you have a feature request, please add it as an [issue](https://github.com/intelsdi-x/snap-plugin-collector-ethtool/issues).
 
 ## Community Support
 This repository is one of **many** plugins in the **Snap Framework**: a powerful telemetry agent framework. To reach out on other use cases, visit:
 
-* Snap Gitter channel (@TODO Link)
-* Our Google Group (@TODO Link)
+* [Snap Gitter channel] (https://gitter.im/intelsdi-x/snap)
 
 The full project is at http://github.com:intelsdi-x/snap.
 
 ## Contributing
-We love contributions! :heart_eyes:
+We love contributions!
 
 There's more than one way to give back, from examples to blogs to code updates. See our recommended process in [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -61,6 +75,7 @@ Snap, along with this plugin, is an Open Source software released under the Apac
 ## Acknowledgements
 List authors, co-authors and anyone you'd like to mention
 
-* Author: [Lukasz Mroz](https://github.com/lmroz)
+* Author: 	[Lukasz Mroz](https://github.com/lmroz)
+* Co-author:[Izabella Raulin](https://github.com/IzabellaRaulin)
 
 **Thank you!** Your contribution is incredibly important to us.
