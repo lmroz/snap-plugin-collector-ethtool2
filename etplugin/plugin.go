@@ -15,7 +15,6 @@ limitations under the License.
 package etplugin
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -45,27 +44,34 @@ const (
 
 var namespacePrefix = []string{"intel", "net"}
 
-type collectInfo struct {
-	collect_s bool // execute "ethtool -S"; NIC statistics
-	collect_d bool // execute "ethtool -d"; Register statistics (register dump)
-}
-
 // makeName creates metrics namespace includes device(contains driver info), type of metrics and metric name
-func makeName(device, typeOf, metric string) []string {
-	ns := append(namespacePrefix, strings.Split(device, "/")...)
-	ns = append(ns, typeOf)
+func makeName(source metricSource, metric string) []string {
+	kindStr := statNicLabel
+	if source.kind == COLLECT_REGDUMP {
+		kindStr = statRegLabel
+	}
+	ns := append(namespacePrefix, strings.Split(source.device, "/")...)
+	ns = append(ns, kindStr)
 	ns = append(ns, strings.Split(metric, "/")...)
 	return ns
 }
 
 // parseName performs reverse operation to make name, extracts driver, device, type of metric (eg. nic statistics or register dump)
 // and metric name from namespace
-func parseName(ns []string) (driver, device, typeOf, metric string) {
-	if len(ns) < len(namespacePrefix)+4 {
-		panic("Cannot parse metric namespace")
+func parseName(ns []string) (source metricSource, metric string) {
+	src := metricSource{}
+
+	prefixLen := len(namespacePrefix)
+
+	src.device = ns[prefixLen]
+
+	src.kind = COLLECT_STAT
+	if ns[prefixLen+1] == statRegLabel {
+
+		src.kind = COLLECT_REGDUMP
 	}
 
-	return ns[len(namespacePrefix)], ns[len(namespacePrefix)+1], ns[len(namespacePrefix)+2], joinNamespace(ns[len(namespacePrefix)+3:])
+	return src, strings.Join(ns[prefixLen+2:], "/")
 }
 
 // joinNamespace concatenates the elements of `ns` to create a single string with slash as the separator between elements in the resulting string.
@@ -78,48 +84,15 @@ type IXGBEPlugin struct {
 	mc metricCollector
 }
 
-// setMetricType returns map of interfaces with information about what type of statistics are desired to be collected.
-// That indicate ethtool command arguments to execute.
-func setMetricType(mts []plugin.PluginMetricType) map[string]*collectInfo {
-
-	isetMt := make(map[string]*collectInfo)
-
-	for _, mt := range mts {
-
-		// retrive info about stat type from metric namespace
-		_, dev, typeOf, _ := parseName(mt.Namespace())
-
-		// set items defaults to false if not initialized before
-		if isetMt[dev] == nil {
-
-			isetMt[dev] = &collectInfo{collect_s: false, collect_d: false}
-		}
-
-		switch typeOf {
-		case statNicLabel: // type of stats indicates nic stats, set collect_s true
-			isetMt[dev].collect_s = true
-			break
-
-		case statRegLabel: // type of stats indicates reg dump stats, set collect_d true
-			isetMt[dev].collect_d = true
-			break
-
-		default: // unrecognize type of metric, exit function with nil map
-			return nil
-		}
-	}
-
-	return isetMt
-}
-
 // CollectMetrics retrieves values for given metrics
 func (p *IXGBEPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.PluginMetricType, error) {
 
 	// with which interfaces and what type of statistics are desired to be collected; avoid unnecessary ethtool -d command execution
-	iset := setMetricType(mts)
+	iset := map[metricSource]bool{}
 
-	if iset == nil {
-		return nil, errors.New("Unrecognize type of metric and ethtool command options to execute")
+	for _, mt := range mts {
+		src, _ := parseName(mt.Namespace())
+		iset[src] = true
 	}
 
 	metrics, err := p.mc.Collect(iset)
@@ -134,11 +107,10 @@ func (p *IXGBEPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.Pl
 	results := make([]plugin.PluginMetricType, len(mts))
 
 	for i, mt := range mts {
-		_, dev, typeOf, metric := parseName(mt.Namespace())
-		ns := joinNamespace([]string{dev, typeOf, metric})
-		val, ok := metrics[ns]
+		src, metric := parseName(mt.Namespace())
+		val, ok := metrics[src][metric]
 		if !ok {
-			return nil, fmt.Errorf("unknown %s stat: %s on interface %s", typeOf, metric, dev)
+			return nil, fmt.Errorf("unknown stat: %s on interface %s", metric, src.device)
 		}
 
 		results[i] = plugin.PluginMetricType{
@@ -155,7 +127,6 @@ func (p *IXGBEPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.Pl
 // GetMetricTypes returns list of metrics. Metrics are put in namespaces {"intel", "net", DRIVER, INTERFACE, metrics...}
 func (p *IXGBEPlugin) GetMetricTypes(cfg plugin.PluginConfigType) ([]plugin.PluginMetricType, error) {
 	mts := []plugin.PluginMetricType{}
-	tags := map[string]string{}
 
 	// metrics from command `ethtool -S <interface>`
 	valid, err := p.mc.ValidMetrics()
@@ -163,28 +134,29 @@ func (p *IXGBEPlugin) GetMetricTypes(cfg plugin.PluginConfigType) ([]plugin.Plug
 		return nil, err
 	}
 
-	for dev, metrics := range valid {
+	for source, metrics := range valid {
 		for _, metric := range metrics {
-			ns := makeName(dev, statNicLabel, metric)
-			tags["driver"], _, _, _ = parseName(ns)
-			mts = append(mts, plugin.PluginMetricType{Namespace_: ns, Tags_: tags})
+			ns := makeName(source, metric)
+			mts = append(mts, plugin.PluginMetricType{Namespace_: ns})
 		}
 	}
-
-	// register dump raw metrics from command `ethtool -d <interface>`
-	validRegDump, err := p.mc.ValidRegDumpMetrics()
-	if err != nil {
-		return nil, err
-	}
-
-	for dev, metrics := range validRegDump {
-		for _, metric := range metrics {
-			ns := makeName(dev, statRegLabel, metric)
-			tags["driver"], _, _, _ = parseName(ns)
-			mts = append(mts, plugin.PluginMetricType{Namespace_: ns, Tags_: tags})
+	/*
+		for dev, metrics := range valid {
+			for _, metric := range metrics {
+				ns := makeName(dev, statNicLabel, metric)
+				tags["driver"], _, _, _ = parseName(ns)
+				mts = append(mts, plugin.PluginMetricType{Namespace_: ns, Tags_: tags})
+			}
 		}
-	}
 
+		for dev, metrics := range valid {
+			for _, metric := range metrics {
+				ns := makeName(dev, statNicLabel, metric)
+				tags["driver"], _, _, _ = parseName(ns)
+				mts = append(mts, plugin.PluginMetricType{Namespace_: ns, Tags_: tags})
+			}
+		}
+	*/
 	return mts, nil
 }
 

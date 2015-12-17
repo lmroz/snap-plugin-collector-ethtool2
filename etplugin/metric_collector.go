@@ -22,10 +22,26 @@ import (
 	"github.com/intelsdi-x/snap-plugin-collector-ethtool/ethtool"
 )
 
+type metricKind int
+
+const (
+	COLLECT_NONE metricKind = 0
+	COLLECT_STAT            = 1 << iota
+	COLLECT_REGDUMP
+)
+
+type metricSource struct {
+	device string
+	kind   metricKind
+}
+
+type metricDescription struct {
+	name, driver string
+}
+
 type metricCollector interface {
-	Collect(iset map[string]*collectInfo) (map[string]string, error)
-	ValidMetrics() (map[string][]string, error)
-	ValidRegDumpMetrics() (map[string][]string, error)
+	Collect(iset map[metricSource]bool) (map[metricSource]map[string]string, error)
+	ValidMetrics() (map[metricSource][]string, error)
 }
 
 type metricCollectorImpl struct {
@@ -37,112 +53,74 @@ var netInterfaces = func() ([]net.Interface, error) {
 	return net.Interfaces()
 }
 
-// ValidMetrics returns map of net interfaces existing in system (includes driver name)
-// and available metrics for them retrived from `ethtool -S`
-func (mc *metricCollectorImpl) ValidMetrics() (map[string][]string, error) {
-	ifaces, err := netInterfaces()
+func keysError(m map[string]string, err error) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
 
-	result := map[string][]string{}
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-
-		driver, err := mc.Ethtool.GetDriverInfo(iface.Name)
-		if err != nil {
-			return nil, err
-		}
-
-		// include driver's name and net interface into metric namespace
-		name := joinNamespace([]string{driver, iface.Name})
-
-		stats, err := mc.Ethtool.GetStats(iface.Name)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error getting NIC stats for %+v, %+v\n", iface.Name, err)
-			continue
-		}
-
-		validList := make([]string, 0, len(stats))
-		for stat, _ := range stats {
-			validList = append(validList, stat)
-		}
-		result[name] = validList
+	s := make([]string, 0, len(m))
+	for k, _ := range m {
+		s = append(s, k)
 	}
-
-	return result, nil
+	return s, nil
 }
 
-// ValidRegDumpMetrics returns map of net interfaces existing in system (includes driver name)
-// and available register dump metrics for them retrived from `ethtool -d`
-func (mc *metricCollectorImpl) ValidRegDumpMetrics() (map[string][]string, error) {
-
+// ValidMetrics returns map of net interfaces existing in system (includes driver name)
+// and available metrics for them retrived from `ethtool -S`
+func (mc *metricCollectorImpl) ValidMetrics() (map[metricSource][]string, error) {
 	ifaces, err := netInterfaces()
 	if err != nil {
 		return nil, err
 	}
 
-	result := map[string][]string{}
+	result := map[metricSource][]string{}
 	for _, iface := range ifaces {
 		if iface.Flags&net.FlagLoopback != 0 {
 			continue
 		}
 
-		driver, err := mc.Ethtool.GetDriverInfo(iface.Name)
+		result[metricSource{iface.Name, COLLECT_STAT}], err = keysError(mc.Ethtool.GetStats(iface.Name))
+
 		if err != nil {
-			return nil, err
+			fmt.Fprintf(os.Stderr, "Error getting NIC stats for %+v, %+v\n", iface.Name, err)
 		}
 
-		// include driver's name and net interface into metric namespace
-		name := joinNamespace([]string{driver, iface.Name})
-
-		stats, err := mc.Ethtool.GetRegDump(iface.Name)
+		result[metricSource{iface.Name, COLLECT_REGDUMP}], err = keysError(mc.Ethtool.GetRegDump(iface.Name))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error getting register dump for %+v, %+v\n", iface.Name, err)
-			continue
 		}
-
-		validList := make([]string, 0, len(stats))
-		for stat, _ := range stats {
-			validList = append(validList, stat)
-		}
-
-		result[name] = validList
 	}
 
 	return result, nil
 }
 
 // CollectMetrics returns all desired net metrics defined in task manifest
-func (mc *metricCollectorImpl) Collect(iset map[string]*collectInfo) (map[string]string, error) {
-	result := map[string]string{}
+func (mc *metricCollectorImpl) Collect(iset map[metricSource]bool) (map[metricSource]map[string]string, error) {
+	result := map[metricSource]map[string]string{}
 
-	for dev, info := range iset {
+	for src, _ := range iset {
 
-		if info.collect_s {
+		var err error
+		stats := map[string]string{}
+
+		if src.kind == COLLECT_STAT {
 			//collect output from ethtool -s (adapter statistics)
-			stats, err := mc.Ethtool.GetStats(dev)
+			stats, err = mc.Ethtool.GetStats(src.device)
 			if err != nil {
-				return nil, fmt.Errorf("cant read stats from %s [%v]", dev, err)
-			}
-			for stat, value := range stats {
-				ns := joinNamespace([]string{dev, statNicLabel, stat})
-				result[ns] = value
+				return nil, fmt.Errorf("cant read stats from %s [%v]", src.device, err)
 			}
 		}
 
-		if info.collect_d {
+		if src.kind == COLLECT_REGDUMP {
 			//collect output from ethtool -d (statictics from register dump)
-			statsReg, errReg := mc.Ethtool.GetRegDump(dev)
-			if errReg != nil {
-				return nil, fmt.Errorf("cant read register dump raw stats from %s [%v]", dev, errReg)
+			stats, err = mc.Ethtool.GetRegDump(src.device)
+			if err != nil {
+				return nil, fmt.Errorf("cant read register dump raw stats from %s [%v]", src.device, err)
 			}
-			for statReg, valueReg := range statsReg {
-				ns := joinNamespace([]string{dev, statRegLabel, statReg})
-				result[ns] = valueReg
-			}
+
+		}
+		if len(stats) > 0 {
+			result[src] = stats
 		}
 
 	}
