@@ -43,15 +43,16 @@ const (
 )
 
 var namespacePrefix = []string{"intel", "net"}
-
+var prefixLength = len(namespacePrefix)
 // makeName creates metrics namespace includes device(contains driver info), type of metrics and metric name
 func makeName(source metricSource, metric string) []string {
-	kindStr := statNicLabel
+	kind := statNicLabel
 	if source.kind == COLLECT_REGDUMP {
-		kindStr = statRegLabel
+		kind = statRegLabel
 	}
-	ns := append(namespacePrefix, strings.Split(source.device, "/")...)
-	ns = append(ns, kindStr)
+	ns := append(namespacePrefix, source.driver)
+	ns = append(ns, source.device)
+	ns = append(ns, kind)
 	ns = append(ns, strings.Split(metric, "/")...)
 	return ns
 }
@@ -59,19 +60,23 @@ func makeName(source metricSource, metric string) []string {
 // parseName performs reverse operation to make name, extracts driver, device, type of metric (eg. nic statistics or register dump)
 // and metric name from namespace
 func parseName(ns []string) (source metricSource, metric string) {
-	src := metricSource{}
 
-	prefixLen := len(namespacePrefix)
-
-	src.device = ns[prefixLen]
-
-	src.kind = COLLECT_STAT
-	if ns[prefixLen+1] == statRegLabel {
-
-		src.kind = COLLECT_REGDUMP
+	if len(ns) > prefixLength+3 {
+		source.driver = ns[prefixLength]
+		source.device = ns[prefixLength+1]
+		kind := ns[prefixLength+2]
+		metric = strings.Join(ns[prefixLength+3:], "/")
+	
+		switch kind {
+			case statNicLabel: 
+				source.kind = COLLECT_STAT
+			case statRegLabel:
+				source.kind = COLLECT_REGDUMP
+			default:
+				source.kind = COLLECT_NONE
+		}
 	}
-
-	return src, strings.Join(ns[prefixLen+2:], "/")
+	return
 }
 
 // joinNamespace concatenates the elements of `ns` to create a single string with slash as the separator between elements in the resulting string.
@@ -89,7 +94,7 @@ func (p *IXGBEPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.Pl
 
 	// with which interfaces and what type of statistics are desired to be collected; avoid unnecessary ethtool -d command execution
 	iset := map[metricSource]bool{}
-
+	
 	for _, mt := range mts {
 		src, _ := parseName(mt.Namespace())
 		iset[src] = true
@@ -118,6 +123,7 @@ func (p *IXGBEPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.Pl
 			Data_:      val,
 			Source_:    host,
 			Timestamp_: t,
+
 		}
 	}
 

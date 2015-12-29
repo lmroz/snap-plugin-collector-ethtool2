@@ -32,6 +32,7 @@ const (
 
 type metricSource struct {
 	device string
+	driver string
 	kind   metricKind
 }
 
@@ -74,18 +75,25 @@ func (mc *metricCollectorImpl) ValidMetrics() (map[metricSource][]string, error)
 	}
 
 	result := map[metricSource][]string{}
+	
 	for _, iface := range ifaces {
 		if iface.Flags&net.FlagLoopback != 0 {
 			continue
 		}
+		
+		
+		driverName, err := mc.Ethtool.GetDriverInfo(iface.Name)
+		if err != nil {
+			return nil, err
+		}
 
-		result[metricSource{iface.Name, COLLECT_STAT}], err = keysError(mc.Ethtool.GetStats(iface.Name))
+		result[metricSource{driver: driverName, device: iface.Name, kind: COLLECT_STAT}], err = keysError(mc.Ethtool.GetStats(iface.Name))
 
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error getting NIC stats for %+v, %+v\n", iface.Name, err)
 		}
 
-		result[metricSource{iface.Name, COLLECT_REGDUMP}], err = keysError(mc.Ethtool.GetRegDump(iface.Name))
+		result[metricSource{driver: driverName, device: iface.Name, kind: COLLECT_REGDUMP}], err = keysError(mc.Ethtool.GetRegDump(iface.Name))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error getting register dump for %+v, %+v\n", iface.Name, err)
 		}
@@ -94,7 +102,7 @@ func (mc *metricCollectorImpl) ValidMetrics() (map[metricSource][]string, error)
 	return result, nil
 }
 
-// CollectMetrics returns all desired net metrics defined in task manifest
+// CollectMetrics returns all desired metrics defined in task manifest
 func (mc *metricCollectorImpl) Collect(iset map[metricSource]bool) (map[metricSource]map[string]string, error) {
 	result := map[metricSource]map[string]string{}
 
@@ -117,7 +125,6 @@ func (mc *metricCollectorImpl) Collect(iset map[metricSource]bool) (map[metricSo
 			if err != nil {
 				return nil, fmt.Errorf("cant read register dump raw stats from %s [%v]", src.device, err)
 			}
-
 		}
 		if len(stats) > 0 {
 			result[src] = stats
