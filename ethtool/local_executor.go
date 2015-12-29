@@ -21,7 +21,7 @@ import (
 
 const command = "ethtool"
 
-// Executes ethtool on local machine and filters output to return
+// Execute() executes ethtool on local machine and filters output to return
 // list of non-empty lines.
 func (self *LocalExecutor) Execute(option, iface string) ([]string, error) {
 	path, err := exec.LookPath(command)
