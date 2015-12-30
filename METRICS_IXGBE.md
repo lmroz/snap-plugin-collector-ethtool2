@@ -3,7 +3,7 @@
 ## Metrics exposed via driver ixgbe:		
 		
 
-**a) NIC statistics**
+### NIC statistics
 
 Namespace: `/intel/net/ixgbe/<device name>/nic/<metric name>`
 		
@@ -83,7 +83,7 @@ Metric Name |
 
 
 
-**b) Register dump statistics**
+### Register dump statistics
 
 Namespace: `/intel/net/ixgbe/<device name>/reg/<metric name>`
 
@@ -335,3 +335,6 @@ Metric Name| Description
 |vlan_filter                                   	|	VLAN filter status (enabled/disabled)
 |vlan_mode                                     	|	VLAN mode (enabled/disabled)
 |xec                                           	|	XSUM Error Count	
+
+
+A few drivers such as IXGBE support exposing optical transceivers (SFP, SFP+, or XFP) information too. The information is known as [digital optical monitoring (DOM)] (METRICS_DOM.md#digital-optical-monitoring) information.

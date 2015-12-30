@@ -2,7 +2,7 @@
 		
 ## Metrics exposed via driver FM10k:		
 				
-**a) NIC statistics**
+### NIC statistics
 
 Namespace: `/intel/net/fm10k/<device name>/nic/<metric name>`
 		

@@ -1,3 +1,5 @@
+// +build linux
+
 /*
 http://www.apache.org/licenses/LICENSE-2.0.txt
 Copyright 2015 Intel Corporation
@@ -25,7 +27,7 @@ func main() {
 
 	plugin.Start(
 		etplugin.Meta(),
-		etplugin.NewIXGBECollector(),
+		etplugin.NewNetCollector(),
 		os.Args[1],
 	)
 }

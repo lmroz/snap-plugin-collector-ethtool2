@@ -2,7 +2,7 @@
 		
 ## Metrics exposed via driver tg3:		
 		
-**a) NIC statistics**
+### NIC statistics
 
 Namespace: `/intel/net/tg3/<device name>/nic/<metric name>`
 			

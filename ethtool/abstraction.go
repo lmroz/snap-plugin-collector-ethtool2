@@ -14,23 +14,24 @@ limitations under the License.
 
 package ethtool
 
-// Executes ethtool with given option on given interface
+// Executor executes ethtool with given option on given interface
 type Executor interface {
 	Execute(option, iface string) ([]string, error)
 }
 
-// Performs data collection from given interface
+// Collector performs data collection from given interface
 type Collector interface {
-	GetStats(iface string) (map[string]string, error)
+	GetNicStats(iface string) (map[string]string, error)
 	GetRegDump(iface string) (map[string]string, error)
+	GetDomStats(iface string) (map[string]string, error)
 	GetDriverInfo(iface string) (string, error)
 }
 
-// Executes ethtool on local machine
+// LocalExecutor executes ethtool on local machine
 type LocalExecutor struct {
 }
 
-// Performs data collection from ethtool
+// ToolCollector performs data collection from ethtool
 type ToolCollector struct {
 	Tool Executor
 }

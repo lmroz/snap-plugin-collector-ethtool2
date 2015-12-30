@@ -17,15 +17,12 @@ package etplugin
 import (
 	"fmt"
 	"os"
-
 	"strings"
 	"time"
 
+	"github.com/intelsdi-x/snap-plugin-collector-ethtool/ethtool"
 	"github.com/intelsdi-x/snap/control/plugin"
 	"github.com/intelsdi-x/snap/control/plugin/cpolicy"
-	//"github.com/intelsdi-x/snap-plugin-utilities/config"
-
-	"github.com/intelsdi-x/snap-plugin-collector-ethtool/ethtool"
 )
 
 const (
@@ -40,16 +37,23 @@ const (
 const (
 	statNicLabel = "nic"
 	statRegLabel = "reg"
+	statDomLabel = "dom"
 )
 
 var namespacePrefix = []string{"intel", "net"}
 var prefixLength = len(namespacePrefix)
+
 // makeName creates metrics namespace includes device(contains driver info), type of metrics and metric name
 func makeName(source metricSource, metric string) []string {
 	kind := statNicLabel
-	if source.kind == COLLECT_REGDUMP {
+
+	switch source.kind {
+	case COLLECT_REGDUMP:
 		kind = statRegLabel
+	case COLLECT_DOM:
+		kind = statDomLabel
 	}
+
 	ns := append(namespacePrefix, source.driver)
 	ns = append(ns, source.device)
 	ns = append(ns, kind)
@@ -66,35 +70,32 @@ func parseName(ns []string) (source metricSource, metric string) {
 		source.device = ns[prefixLength+1]
 		kind := ns[prefixLength+2]
 		metric = strings.Join(ns[prefixLength+3:], "/")
-	
+
 		switch kind {
-			case statNicLabel: 
-				source.kind = COLLECT_STAT
-			case statRegLabel:
-				source.kind = COLLECT_REGDUMP
-			default:
-				source.kind = COLLECT_NONE
+		case statNicLabel:
+			source.kind = COLLECT_NIC
+		case statRegLabel:
+			source.kind = COLLECT_REGDUMP
+		case statDomLabel:
+			source.kind = COLLECT_DOM
+		default:
+			source.kind = COLLECT_NONE
 		}
 	}
 	return
 }
 
-// joinNamespace concatenates the elements of `ns` to create a single string with slash as the separator between elements in the resulting string.
-func joinNamespace(ns []string) string {
-	return strings.Join(ns, "/")
-}
-
-// Plugin's main class.
-type IXGBEPlugin struct {
+// NetPlugin is the main class
+type NetPlugin struct {
 	mc metricCollector
 }
 
 // CollectMetrics retrieves values for given metrics
-func (p *IXGBEPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.PluginMetricType, error) {
+func (p *NetPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.PluginMetricType, error) {
 
-	// with which interfaces and what type of statistics are desired to be collected; avoid unnecessary ethtool -d command execution
+	// with which interfaces and what type of statistics are desired to be collected; avoid unnecessary command execution
 	iset := map[metricSource]bool{}
-	
+
 	for _, mt := range mts {
 		src, _ := parseName(mt.Namespace())
 		iset[src] = true
@@ -123,7 +124,6 @@ func (p *IXGBEPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.Pl
 			Data_:      val,
 			Source_:    host,
 			Timestamp_: t,
-
 		}
 	}
 
@@ -131,10 +131,9 @@ func (p *IXGBEPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.Pl
 }
 
 // GetMetricTypes returns list of metrics. Metrics are put in namespaces {"intel", "net", DRIVER, INTERFACE, metrics...}
-func (p *IXGBEPlugin) GetMetricTypes(cfg plugin.PluginConfigType) ([]plugin.PluginMetricType, error) {
+func (p *NetPlugin) GetMetricTypes(cfg plugin.PluginConfigType) ([]plugin.PluginMetricType, error) {
 	mts := []plugin.PluginMetricType{}
 
-	// metrics from command `ethtool -S <interface>`
 	valid, err := p.mc.ValidMetrics()
 	if err != nil {
 		return nil, err
@@ -146,42 +145,26 @@ func (p *IXGBEPlugin) GetMetricTypes(cfg plugin.PluginConfigType) ([]plugin.Plug
 			mts = append(mts, plugin.PluginMetricType{Namespace_: ns})
 		}
 	}
-	/*
-		for dev, metrics := range valid {
-			for _, metric := range metrics {
-				ns := makeName(dev, statNicLabel, metric)
-				tags["driver"], _, _, _ = parseName(ns)
-				mts = append(mts, plugin.PluginMetricType{Namespace_: ns, Tags_: tags})
-			}
-		}
 
-		for dev, metrics := range valid {
-			for _, metric := range metrics {
-				ns := makeName(dev, statNicLabel, metric)
-				tags["driver"], _, _, _ = parseName(ns)
-				mts = append(mts, plugin.PluginMetricType{Namespace_: ns, Tags_: tags})
-			}
-		}
-	*/
 	return mts, nil
 }
 
-// GetConfigPolicy
-func (p *IXGBEPlugin) GetConfigPolicy() (*cpolicy.ConfigPolicy, error) {
+// GetConfigPolicy returns config policy
+func (p *NetPlugin) GetConfigPolicy() (*cpolicy.ConfigPolicy, error) {
 	c := cpolicy.New()
 	return c, nil
 }
 
-// Creates new instance of plugin and returns pointer to initialized object.
-func NewIXGBECollector() *IXGBEPlugin {
+// NewNetCollector creates new instance of plugin and returns pointer to initialized object
+func NewNetCollector() *NetPlugin {
 	exc := new(ethtool.LocalExecutor)
 	col := &ethtool.ToolCollector{Tool: exc}
 	mc := &metricCollectorImpl{Ethtool: col}
 
-	return &IXGBEPlugin{mc: mc}
+	return &NetPlugin{mc: mc}
 }
 
-// Returns plugin's metadata
+// Meta returns plugin's metadata
 func Meta() *plugin.PluginMeta {
 	return plugin.NewPluginMeta(Name, Version, Type, []string{plugin.SnapGOBContentType}, []string{plugin.SnapGOBContentType})
 }

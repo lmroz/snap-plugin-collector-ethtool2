@@ -26,8 +26,9 @@ type metricKind int
 
 const (
 	COLLECT_NONE metricKind = 0
-	COLLECT_STAT            = 1 << iota
+	COLLECT_NIC             = 1 << iota
 	COLLECT_REGDUMP
+	COLLECT_DOM
 )
 
 type metricSource struct {
@@ -54,20 +55,21 @@ var netInterfaces = func() ([]net.Interface, error) {
 	return net.Interfaces()
 }
 
-func keysError(m map[string]string, err error) ([]string, error) {
+// getKeys returns metric keys as a slice
+func getKeys(m map[string]string, err error) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
 
+	//transform map to slice
 	s := make([]string, 0, len(m))
-	for k, _ := range m {
+	for k := range m {
 		s = append(s, k)
 	}
 	return s, nil
 }
 
-// ValidMetrics returns map of net interfaces existing in system (includes driver name)
-// and available metrics for them retrived from `ethtool -S`
+// ValidMetrics returns map of metrics for each existing net interfaces
 func (mc *metricCollectorImpl) ValidMetrics() (map[metricSource][]string, error) {
 	ifaces, err := netInterfaces()
 	if err != nil {
@@ -75,47 +77,56 @@ func (mc *metricCollectorImpl) ValidMetrics() (map[metricSource][]string, error)
 	}
 
 	result := map[metricSource][]string{}
-	
+
 	for _, iface := range ifaces {
 		if iface.Flags&net.FlagLoopback != 0 {
 			continue
 		}
-		
-		
+
 		driverName, err := mc.Ethtool.GetDriverInfo(iface.Name)
 		if err != nil {
 			return nil, err
 		}
 
-		result[metricSource{driver: driverName, device: iface.Name, kind: COLLECT_STAT}], err = keysError(mc.Ethtool.GetStats(iface.Name))
+		result[metricSource{driver: driverName, device: iface.Name, kind: COLLECT_NIC}], err = getKeys(mc.Ethtool.GetNicStats(iface.Name))
 
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error getting NIC stats for %+v, %+v\n", iface.Name, err)
 		}
 
-		result[metricSource{driver: driverName, device: iface.Name, kind: COLLECT_REGDUMP}], err = keysError(mc.Ethtool.GetRegDump(iface.Name))
+		result[metricSource{driver: driverName, device: iface.Name, kind: COLLECT_REGDUMP}], err = getKeys(mc.Ethtool.GetRegDump(iface.Name))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error getting register dump for %+v, %+v\n", iface.Name, err)
+		}
+
+		result[metricSource{driver: driverName, device: iface.Name, kind: COLLECT_DOM}], err = getKeys(mc.Ethtool.GetDomStats(iface.Name))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error getting module EEPROM information for %+v, %+v\n", iface.Name, err)
 		}
 	}
 
 	return result, nil
 }
 
-// CollectMetrics returns all desired metrics defined in task manifest
+// Collect returns all available metrics exposed by metric source (defined as interface name and kind of ethtool command to execute)
 func (mc *metricCollectorImpl) Collect(iset map[metricSource]bool) (map[metricSource]map[string]string, error) {
 	result := map[metricSource]map[string]string{}
 
-	for src, _ := range iset {
+	for src, ok := range iset {
+
+		if !ok {
+			// skip this source
+			continue
+		}
 
 		var err error
 		stats := map[string]string{}
 
-		if src.kind == COLLECT_STAT {
+		if src.kind == COLLECT_NIC {
 			//collect output from ethtool -s (adapter statistics)
-			stats, err = mc.Ethtool.GetStats(src.device)
+			stats, err = mc.Ethtool.GetNicStats(src.device)
 			if err != nil {
-				return nil, fmt.Errorf("cant read stats from %s [%v]", src.device, err)
+				return nil, fmt.Errorf("canot read NIC stats from %s [%v]", src.device, err)
 			}
 		}
 
@@ -126,6 +137,15 @@ func (mc *metricCollectorImpl) Collect(iset map[metricSource]bool) (map[metricSo
 				return nil, fmt.Errorf("cant read register dump raw stats from %s [%v]", src.device, err)
 			}
 		}
+
+		if src.kind == COLLECT_DOM {
+			//collect output from ethtool -m, which provides digital optical monitoring info (diagnostics data and alarms for optical transceivers)
+			stats, err = mc.Ethtool.GetDomStats(src.device)
+			if err != nil {
+				return nil, fmt.Errorf("Cannot read digital optical monitoring information from %s [%v]", src.device, err)
+			}
+		}
+
 		if len(stats) > 0 {
 			result[src] = stats
 		}

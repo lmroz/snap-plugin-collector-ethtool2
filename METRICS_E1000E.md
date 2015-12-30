@@ -2,7 +2,7 @@
 
 ## Metrics exposed via driver e1000e:
 
-**a) NIC statistics**
+## NIC statistics
 
 Namespace: `/intel/net/e1000e/<device name>/nic/<metric name>`
 
@@ -63,7 +63,7 @@ Metric Name|
 |uncorr_ecc_errors |  
 
 
-**b) Register dump statistics**
+## Register dump statistics
 
 Namespace: `/intel/net/e1000e/<device name>/reg/<metric name>`
 
