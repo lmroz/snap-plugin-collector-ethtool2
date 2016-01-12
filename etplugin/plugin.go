@@ -17,13 +17,12 @@ package etplugin
 import (
 	"fmt"
 	"os"
-	"strconv"
+	"strings"
 	"time"
 
+	"github.com/intelsdi-x/snap-plugin-collector-ethtool/ethtool"
 	"github.com/intelsdi-x/snap/control/plugin"
 	"github.com/intelsdi-x/snap/control/plugin/cpolicy"
-
-	"github.com/intelsdi-x/snap-plugin-collector-ethtool/ethtool"
 )
 
 const (
@@ -35,84 +34,114 @@ const (
 	Type = plugin.CollectorPluginType
 )
 
+const (
+	statNicLabel = "nic"
+	statRegLabel = "reg"
+	statDomLabel = "dom"
+)
+
 var namespacePrefix = []string{"intel", "net"}
+var prefixLength = len(namespacePrefix)
 
-func makeName(device, metric string) []string {
-	result := []string{}
-	result = append(result, namespacePrefix...)
-	result = append(result, device, metric)
-	return result
+// makeName creates metrics namespace includes device(contains driver info), type of metrics and metric name
+func makeName(source metricSource, metric string) []string {
+	kind := statNicLabel
 
+	switch source.kind {
+	case COLLECT_REGDUMP:
+		kind = statRegLabel
+	case COLLECT_DOM:
+		kind = statDomLabel
+	}
+
+	ns := append(namespacePrefix, source.driver)
+	ns = append(ns, source.device)
+	ns = append(ns, kind)
+	ns = append(ns, strings.Split(metric, "/")...)
+	return ns
 }
 
-// performs reverse operation to make name, extracts device
-// and metric from namespace
-func parseName(ns []string) (device, metric string) {
-	return ns[len(namespacePrefix)], ns[len(namespacePrefix)+1]
+// parseName performs reverse operation to make name, extracts driver, device, type of metric (eg. nic statistics or register dump)
+// and metric name from namespace
+func parseName(ns []string) (source metricSource, metric string) {
 
+	if len(ns) > prefixLength+3 {
+		source.driver = ns[prefixLength]
+		source.device = ns[prefixLength+1]
+		kind := ns[prefixLength+2]
+		metric = strings.Join(ns[prefixLength+3:], "/")
+
+		switch kind {
+		case statNicLabel:
+			source.kind = COLLECT_NIC
+		case statRegLabel:
+			source.kind = COLLECT_REGDUMP
+		case statDomLabel:
+			source.kind = COLLECT_DOM
+		default:
+			source.kind = COLLECT_NONE
+		}
+	}
+	return
 }
 
-// Plugin's main class.
-type IXGBEPlugin struct {
+// NetPlugin is the main class
+type NetPlugin struct {
 	mc metricCollector
 }
 
-// Retrieves values for given metrics.
-// Asks each device only once about it's metrics.
-func (p *IXGBEPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.PluginMetricType, error) {
-	iset := map[string]bool{}
+// CollectMetrics retrieves values for given metrics
+func (p *NetPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.PluginMetricType, error) {
+
+	// with which interfaces and what type of statistics are desired to be collected; avoid unnecessary command execution
+	iset := map[metricSource]bool{}
+
 	for _, mt := range mts {
-		dev, _ := parseName(mt.Namespace())
-		iset[dev] = true
+		src, _ := parseName(mt.Namespace())
+		iset[src] = true
 	}
-	metrics, err := p.mc.CollectMetrics(iset)
+
+	metrics, err := p.mc.Collect(iset)
 	if err != nil {
 		return nil, err
 	}
 
-	// it's not worth to abort collection
-	// when only os.Hostname() raised error
+	// it's not worth to abort collection when only os.Hostname() raised error
 	host, _ := os.Hostname()
 	t := time.Now()
 
 	results := make([]plugin.PluginMetricType, len(mts))
 
 	for i, mt := range mts {
-		dev, metric := parseName(mt.Namespace())
-		val, ok := metrics[dev+"/"+metric]
+		src, metric := parseName(mt.Namespace())
+		val, ok := metrics[src][metric]
 		if !ok {
-			return nil, fmt.Errorf("unknown stat: %s on interface %s", metric, dev)
-		}
-
-		vInt, err := strconv.ParseInt(val, 10, 64)
-
-		if err != nil {
-			return nil, fmt.Errorf("incorrect metric value: %s = %s", metric, val)
+			return nil, fmt.Errorf("unknown stat: %s on interface %s", metric, src.device)
 		}
 
 		results[i] = plugin.PluginMetricType{
 			Namespace_: mt.Namespace(),
-			Data_:      vInt,
+			Data_:      val,
 			Source_:    host,
 			Timestamp_: t,
 		}
-
 	}
 
 	return results, nil
 }
 
-// Returns list of metrics.
-// Metrics are put in namespaces {"intel", "net", INTERFACE, metrics...}
-func (p *IXGBEPlugin) GetMetricTypes(_ plugin.PluginConfigType) ([]plugin.PluginMetricType, error) {
+// GetMetricTypes returns list of metrics. Metrics are put in namespaces {"intel", "net", DRIVER, INTERFACE, metrics...}
+func (p *NetPlugin) GetMetricTypes(cfg plugin.PluginConfigType) ([]plugin.PluginMetricType, error) {
 	mts := []plugin.PluginMetricType{}
+
 	valid, err := p.mc.ValidMetrics()
 	if err != nil {
 		return nil, err
 	}
-	for dev, metrics := range valid {
+
+	for source, metrics := range valid {
 		for _, metric := range metrics {
-			ns := makeName(dev, metric)
+			ns := makeName(source, metric)
 			mts = append(mts, plugin.PluginMetricType{Namespace_: ns})
 		}
 	}
@@ -120,22 +149,22 @@ func (p *IXGBEPlugin) GetMetricTypes(_ plugin.PluginConfigType) ([]plugin.Plugin
 	return mts, nil
 }
 
-// GetConfigPolicy
-func (p *IXGBEPlugin) GetConfigPolicy() (*cpolicy.ConfigPolicy, error) {
+// GetConfigPolicy returns config policy
+func (p *NetPlugin) GetConfigPolicy() (*cpolicy.ConfigPolicy, error) {
 	c := cpolicy.New()
 	return c, nil
 }
 
-// Creates new instance of plugin and returns pointer to initialized object.
-func NewIXGBECollector() *IXGBEPlugin {
+// NewNetCollector creates new instance of plugin and returns pointer to initialized object
+func NewNetCollector() *NetPlugin {
 	exc := new(ethtool.LocalExecutor)
 	col := &ethtool.ToolCollector{Tool: exc}
 	mc := &metricCollectorImpl{Ethtool: col}
 
-	return &IXGBEPlugin{mc: mc}
+	return &NetPlugin{mc: mc}
 }
 
-// Returns plugin's metadata
+// Meta returns plugin's metadata
 func Meta() *plugin.PluginMeta {
 	return plugin.NewPluginMeta(Name, Version, Type, []string{plugin.SnapGOBContentType}, []string{plugin.SnapGOBContentType})
 }

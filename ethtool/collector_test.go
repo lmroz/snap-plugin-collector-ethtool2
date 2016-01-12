@@ -1,12 +1,15 @@
-// +build unit
-
 /*
 http://www.apache.org/licenses/LICENSE-2.0.txt
+
+
 Copyright 2015 Intel Corporation
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -28,9 +31,9 @@ type executorMock struct {
 	mock.Mock
 }
 
-func (self *executorMock) Execute(option, iface string) ([]string, error) {
-	args := self.Called(option, iface)
-	var r0 []string = nil
+func (eMock *executorMock) Execute(option, iface string) ([]string, error) {
+	args := eMock.Called(option, iface)
+	r0 := []string{}
 	if args.Get(0) != nil {
 		r0 = args.Get(0).([]string)
 	}
@@ -38,103 +41,209 @@ func (self *executorMock) Execute(option, iface string) ([]string, error) {
 	return r0, args.Error(1)
 }
 
-func TestGetStats(t *testing.T) {
-	Convey("GetStats", t, func() {
+func TestGetNicStats(t *testing.T) {
+
+	Convey("GetNicStats", t, func() {
 
 		executor := &executorMock{}
 		sut := &ToolCollector{Tool: executor}
 
-		Convey("when fed with correct output", func() {
-
+		Convey("succefully get NIC stats", func() {
 			executor.On("Execute", mock.AnythingOfType("string"),
 				mock.AnythingOfType("string")).Return([]string{"NIC statistics:",
 				"a : b  ", "\tc:d", "   e   :f"}, nil)
 
-			dut, dut_err := sut.GetStats("abc")
+			dut, dutErr := sut.GetNicStats("abc")
 
 			Convey("returns parsed stats", func() {
-
 				So(dut["a"], ShouldEqual, "b")
 				So(dut["c"], ShouldEqual, "d")
 				So(dut["e"], ShouldEqual, "f")
-
 			})
 
 			Convey("returns no error", func() {
-
-				So(dut_err, ShouldBeNil)
-
+				So(dutErr, ShouldBeNil)
 			})
-
-			Convey("calls execute once with correct interface", func() {
-
-				executor.AssertCalled(t, "Execute", mock.AnythingOfType("string"),
-					"abc")
-				executor.AssertNumberOfCalls(t, "Execute", 1)
-
-			})
-
 		})
 
-		Convey("when fed with output with correct header but unknown row format", func() {
-
-			executor.On("Execute", mock.AnythingOfType("string"),
-				mock.AnythingOfType("string")).Return([]string{"NIC statistics:", "xx"}, nil)
-
-			_, dut_err := sut.GetStats("abc")
-
-			Convey("returns error", func() {
-
-				So(dut_err, ShouldNotBeNil)
-
-			})
-
-		})
-
-		Convey("when fed with output with incorrect header", func() {
-
-			executor.On("Execute", mock.AnythingOfType("string"),
-				mock.AnythingOfType("string")).Return([]string{"x y z", "a : b"}, nil)
-
-			_, dut_err := sut.GetStats("abc")
-
-			Convey("returns error", func() {
-
-				So(dut_err, ShouldNotBeNil)
-
-			})
-
-		})
-
-		Convey("when execution failed", func() {
-
+		Convey("execution failed", func() {
 			executor.On("Execute", mock.AnythingOfType("string"),
 				mock.AnythingOfType("string")).Return(nil, errors.New("x"))
 
-			_, dut_err := sut.GetStats("abc")
+			_, dutErr := sut.GetNicStats("abc")
 
 			Convey("returns error", func() {
-
-				So(dut_err, ShouldNotBeNil)
-
+				So(dutErr, ShouldNotBeNil)
 			})
-
 		})
 
-		Convey("when execution returned empty output", func() {
-
+		Convey("empty execution output ", func() {
 			executor.On("Execute", mock.AnythingOfType("string"),
-				mock.AnythingOfType("string")).Return([]string{}, nil)
+				mock.AnythingOfType("string")).Return([]string{}, errors.New("No output"))
 
-			_, dut_err := sut.GetStats("abc")
+			_, dutErr := sut.GetNicStats("abc")
 
 			Convey("returns error", func() {
+				So(dutErr, ShouldNotBeNil)
+			})
+		})
 
-				So(dut_err, ShouldNotBeNil)
+		Convey("incorrect execution output, invalid first line", func() {
 
+			Convey("invalid title line", func() {
+				executor.On("Execute", mock.AnythingOfType("string"),
+					mock.AnythingOfType("string")).Return([]string{"NIC statistics:",
+					"a : b  ", "\tc:d", "   e invalid"}, nil)
+
+				_, dutErr := sut.GetNicStats("abc")
+
+				Convey("returns error", func() {
+					So(dutErr, ShouldNotBeNil)
+				})
+			})
+
+			Convey("invali data format", func() {
+				executor.On("Execute", mock.AnythingOfType("string"),
+					mock.AnythingOfType("string")).Return([]string{"Unknown statistics",
+					"a : b  ", "\tc:d", "   e   :f"}, nil)
+
+				_, dutErr := sut.GetNicStats("abc")
+
+				Convey("returns error", func() {
+					So(dutErr, ShouldNotBeNil)
+				})
+			})
+		})
+	})
+}
+
+func TestGetRegDump(t *testing.T) {
+
+	Convey("GetRegDump", t, func() {
+		executor := &executorMock{}
+		sut := &ToolCollector{Tool: executor}
+
+		Convey("succefully get register dump", func() {
+			executor.On("Execute", mock.AnythingOfType("string"),
+				mock.AnythingOfType("string")).Return([]string{
+				"\t0x040DC: ptc127  (Packets Tx (65-127B) Count)  0x0015F7CC",
+				"Link Status(test)\t:  up",
+				"Link Speed :\t10G"}, nil)
+
+			dut, dutErr := sut.GetRegDump("abc")
+
+			Convey("returns parsed stats", func() {
+				So(dut["ptc127"], ShouldEqual, "0x0015F7CC")
+				So(dut["link_status"], ShouldEqual, "up")
+				So(dut["link_speed"], ShouldEqual, "10G")
+			})
+
+			Convey("returns no error", func() {
+				So(dutErr, ShouldBeNil)
+			})
+		})
+
+		Convey("execution failed", func() {
+			executor.On("Execute", mock.AnythingOfType("string"),
+				mock.AnythingOfType("string")).Return(nil, errors.New("x"))
+
+			_, dutErr := sut.GetRegDump("abc")
+
+			Convey("returns error", func() {
+				So(dutErr, ShouldNotBeNil)
 			})
 
 		})
 
+		Convey("empty execution output ", func() {
+			executor.On("Execute", mock.AnythingOfType("string"),
+				mock.AnythingOfType("string")).Return([]string{}, errors.New("No output"))
+
+			_, dutErr := sut.GetRegDump("abc")
+
+			Convey("returns error", func() {
+				So(dutErr, ShouldNotBeNil)
+			})
+
+		})
+
+		Convey("incorrect execution output", func() {
+			executor.On("Execute", mock.AnythingOfType("string"),
+				mock.AnythingOfType("string")).Return([]string{
+				"ab", "c d", "e::f"}, nil)
+
+			dut, _ := sut.GetRegDump("abc")
+
+			Convey("returns empty dut", func() {
+				So(dut, ShouldBeEmpty)
+			})
+		})
+	})
+}
+
+func TestGetDomStats(t *testing.T) {
+
+	Convey("GetDomStats", t, func() {
+		executor := &executorMock{}
+		sut := &ToolCollector{Tool: executor}
+
+		Convey("succefully get plugable transceiver DOM info", func() {
+			executor.On("Execute", mock.AnythingOfType("string"),
+				mock.AnythingOfType("string")).Return([]string{
+				"Transceiver type : info1",
+				"Transceiver type : info2",
+				"BR, Nominal : 1000MBd",
+				"Length (SMF) : 0m",
+				"Module voltage : 1.0000 V"}, nil)
+
+			dut, dutErr := sut.GetDomStats("abc")
+
+			Convey("returns parsed stats", func() {
+				So(dut["transceiver_type"], ShouldEqual, "info1, info2")
+				So(dut["br_nominal"], ShouldEqual, "1000MBd")
+				So(dut["length_smf"], ShouldEqual, "0m")
+				So(dut["module_voltage"], ShouldEqual, "1.0000 V")
+			})
+
+			Convey("returns no error", func() {
+				So(dutErr, ShouldBeNil)
+			})
+		})
+
+		Convey("execution failed", func() {
+			executor.On("Execute", mock.AnythingOfType("string"),
+				mock.AnythingOfType("string")).Return(nil, errors.New("x"))
+
+			_, dutErr := sut.GetDomStats("abc")
+
+			Convey("returns error", func() {
+				So(dutErr, ShouldNotBeNil)
+			})
+		})
+
+		Convey("empty execution output ", func() {
+			executor.On("Execute", mock.AnythingOfType("string"),
+				mock.AnythingOfType("string")).Return([]string{}, errors.New("No output"))
+
+			_, dutErr := sut.GetDomStats("abc")
+
+			Convey("returns error", func() {
+				So(dutErr, ShouldNotBeNil)
+			})
+
+		})
+
+		Convey("incorrect execution output", func() {
+			executor.On("Execute", mock.AnythingOfType("string"),
+				mock.AnythingOfType("string")).Return([]string{
+				"a : b", "\tcd", "e::f"}, nil)
+
+			_, dutErr := sut.GetDomStats("abc")
+
+			Convey("returns error", func() {
+				So(dutErr, ShouldNotBeNil)
+			})
+
+		})
 	})
 }

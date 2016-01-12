@@ -1,0 +1,72 @@
+{
+    "version": 1,
+    "schedule": {
+        "type": "simple",
+        "interval": "1s"
+    },
+    "workflow": {
+        "collect": {
+            "metrics": {
+                "/intel/net/ixgbe/eth0/nic/rx_packets": {},
+                "/intel/net/ixgbe/eth0/nic/rx_bytes": {},
+                "/intel/net/ixgbe/eth0/nic/tx_packets": {},
+                "/intel/net/ixgbe/eth0/nic/tx_bytes": {},
+                "/intel/net/ixgbe/eth0/nic/tx_fcoe_packets": {},
+                "/intel/net/ixgbe/eth1/nic/rx_packets": {},
+                "/intel/net/ixgbe/eth1/nic/rx_bytes": {},
+                "/intel/net/ixgbe/eth1/nic/tx_packets": {},
+                "/intel/net/ixgbe/eth1/nic/tx_bytes": {},
+                "/intel/net/ixgbe/eth1/nic/tx_fcoe_packets": {},
+				
+                "/intel/net/e1000e/eno1/nic/rx_bytes": {},
+                "/intel/net/e1000e/eno1/nic/rx_errors": {},
+                "/intel/net/e1000e/eno1/nic/tx_bytes": {},
+                "/intel/net/e1000e/eno1/nic/tx_timeout_count": {},
+                "/intel/net/e1000e/eno1/nic/rx_errors": {},
+                "/intel/net/e1000e/eno1/nic/tx_bytes": {},
+                "/intel/net/e1000e/eno1/nic/tx_errors": {},
+				
+                "/intel/net/tg3/eth2/nic/rx_1024_to_1522_octet_packets": {},
+                "/intel/net/tg3/eth2/nic/rx_1523_to_2047_octet_packets": {},
+                "/intel/net/tg3/eth2/nic/rx_2048_to_4095_octet_packets": {},
+                "/intel/net/tg3/eth2/nic/rx_octets": {},
+                "/intel/net/tg3/eth2/nic/tx_octets": {},
+                "/intel/net/tg3/eth3/nic/rx_1024_to_1522_octet_packets": {},
+                "/intel/net/tg3/eth3/nic/rx_1523_to_2047_octet_packets": {},
+                "/intel/net/tg3/eth3/nic/rx_2048_to_4095_octet_packets": {},
+                "/intel/net/tg3/eth3/nic/rx_octets": {},
+                "/intel/net/tg3/eth3/nic/tx_octets": {},
+				
+                "/intel/net/ixgbe/eth0/reg/ARD": {},
+                "/intel/net/ixgbe/eth0/reg/CTRL": {},
+                "/intel/net/ixgbe/eth0/reg/link_speed": {},
+                "/intel/net/ixgbe/eth1/reg/ARD": {},
+                "/intel/net/ixgbe/eth1/reg/CTRL": {},
+                "/intel/net/ixgbe/eth1/reg/link_speed": {},
+                "/intel/net/ixgbe/enp4s0f1/dom/laser_bias_current": {},
+                "/intel/net/ixgbe/enp4s0f1/dom/laser_output_power": {},
+                "/intel/net/ixgbe/enp4s0f1/dom/laser_wavelength": {},
+                "/intel/net/ixgbe/enp4s0f1/dom/length_50um": {},
+                "/intel/net/ixgbe/enp4s0f1/dom/length_62.5um": {},
+                "/intel/net/ixgbe/enp4s0f1/dom/length_copper": {},
+                "/intel/net/ixgbe/enp4s0f1/dom/length_om3": {},
+                "/intel/net/ixgbe/enp4s0f1/dom/length_smf": {},
+                "/intel/net/ixgbe/enp4s0f1/dom/length_smf_km": {},
+                "/intel/net/ixgbe/enp4s0f1/dom/module_temperature": {},
+                "/intel/net/ixgbe/enp4s0f1/dom/module_voltage": {},
+                "/intel/net/ixgbe/enp4s0f1/dom/receiver_signal_average_optical_power": {},
+                "/intel/net/ixgbe/enp4s0f1/dom/br_nominal": {}
+            },
+            "config": {},
+            "process": null,
+            "publish": [
+                {
+                    "plugin_name": "file",
+                    "config": {
+                        "file": "/tmp/published_netstats"
+                    }
+                }
+            ]
+        }
+    }
+}

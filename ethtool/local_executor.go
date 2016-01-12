@@ -15,15 +15,16 @@ limitations under the License.
 package ethtool
 
 import (
+	"errors"
 	"os/exec"
 	"strings"
 )
 
 const command = "ethtool"
 
-// Executes ethtool on local machine and filters output to return
+// Execute executes ethtool on local machine and filters output to return
 // list of non-empty lines.
-func (self *LocalExecutor) Execute(option, iface string) ([]string, error) {
+func (le *LocalExecutor) Execute(option, iface string) ([]string, error) {
 	path, err := exec.LookPath(command)
 	if err != nil {
 		path = "/sbin/ethtool"
@@ -40,6 +41,10 @@ func (self *LocalExecutor) Execute(option, iface string) ([]string, error) {
 		if line != "" {
 			output = append(output, line)
 		}
+	}
+
+	if len(output) <= 0 {
+		return nil, errors.New("no output")
 	}
 
 	return output, nil
