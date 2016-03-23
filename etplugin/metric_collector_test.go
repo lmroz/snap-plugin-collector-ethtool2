@@ -2,7 +2,7 @@
 http://www.apache.org/licenses/LICENSE-2.0.txt
 
 
-Copyright 2015 Intel Corporation
+Copyright 2016 Intel Corporation
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -96,10 +96,12 @@ func TestValidMetrics(t *testing.T) {
 					}, nil
 				}
 
-				_, dutErr := sut.ValidMetrics()
+				sut.ValidMetrics()
 
-				Convey("returns error", func() {
-					So(dutErr, ShouldNotBeNil)
+				Convey("skips that interface", func() {
+					collector.AssertNotCalled(t, "GetNicStats", "invalid0")
+					collector.AssertNotCalled(t, "GetRegDump", "invalid0")
+					collector.AssertNotCalled(t, "GetDomStats", "invalid0")
 				})
 			})
 

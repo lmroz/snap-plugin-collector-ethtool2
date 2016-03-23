@@ -1,6 +1,6 @@
 /*
 http://www.apache.org/licenses/LICENSE-2.0.txt
-Copyright 2015 Intel Corporation
+Copyright 2016 Intel Corporation
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -49,9 +49,9 @@ func (tc *ToolCollector) GetDriverInfo(iface string) (string, error) {
 
 	for _, line := range lines {
 		s := strings.ToLower(line)
-		if strings.Contains(s, "driver:") {
-			match := driverRegex.FindStringSubmatch(s)
-			return match[len(match)-1], nil
+		match := driverRegex.FindStringSubmatch(s)
+		if match != nil {
+			return match[1], nil
 		}
 	}
 
