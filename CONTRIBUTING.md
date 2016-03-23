@@ -6,8 +6,7 @@
 4. [Thank You](#thank-you)
 
 
-This repository is primarily **community supported**. We both appreciate and need your contribution to keep it stable.
-Thank you for being part of the community! We love you for it.
+This repository is primarily **community supported**. We both appreciate and need your contribution to keep it stable. Thank you for being part of the community! We love you for it.
 
 ## Contributing Code
 **_IMPORTANT_**: We encourage contributions to the project from the community. We ask that you keep the following guidelines in mind when planning your contribution.
@@ -27,21 +26,21 @@ Once you're ready to contribute code back to this repo, start with these steps:
     ```
     $ git checkout -b some-topic-branch
     ```
-* Make your changes and run the test suite if one is provided (see below)
+* Make your changes and run the test suite if one is provided (please write some :smile:)
 * Commit your changes and push them to your fork
 * Open a pull request for the appropriate project
 * Contributors will review your pull request, suggest changes, and merge it when it’s ready and/or offer feedback
-* To report a bug or issue, please open a new issue against this repository
+* Again - to report a bug or issue, please open a new issue against this repository
 
-If you have questions feel free to contact the [maintainers](README.md#maintainers).
+If you have questions feel free to contact the maintainers by tagging them: @intelsdi-x/plugin-maintainers.
 
 ## Contributing Examples
 The most immediately helpful way you can benefit this project is by cloning the repository, adding some further examples and submitting a pull request. A few topics we always want more examples of:
 
-* Reading metrics from NIC's registry dump.
-* Unification of metrics' names if discrepancies between vendors exist.
+* Reading metrics from NIC's registry dump
+* Unification of metrics' names if discrepancies between vendors exist
 
-Have you written a blog post about how you use $PROJECT? Send it to us!
+Have you written a blog post about how you use Snap? Send it to us [on Gitter](https://gitter.im/intelsdi-x/snap)!
 
 ## Contribute Elsewhere
 This repository is one of **many** plugins in **snap**, a powerful telemetry framework. See the full project at http://github.com/intelsdi-x/snap
