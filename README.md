@@ -27,7 +27,7 @@ The plugin is ready to use out of the box by following the system requirements. 
 ### System Requirements
 
 * ethtool available under `$PATH` or `/sbin/`
-* [golang 1.5+](https://golang.org/dl/)
+* [golang 1.5+](https://golang.org/dl/) (needed only for building)
 * Root privileges are required
 
 ### Operating systems
