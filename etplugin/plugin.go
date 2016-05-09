@@ -16,20 +16,20 @@ package etplugin
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/intelsdi-x/snap-plugin-collector-ethtool/ethtool"
 	"github.com/intelsdi-x/snap/control/plugin"
 	"github.com/intelsdi-x/snap/control/plugin/cpolicy"
+	"github.com/intelsdi-x/snap/core"
 )
 
 const (
 	// Name of plugin
 	Name = "ethtool"
 	// Version of plugin
-	Version = 3
+	Version = 4
 	// Type of plugin
 	Type = plugin.CollectorPluginType
 )
@@ -91,13 +91,13 @@ type NetPlugin struct {
 }
 
 // CollectMetrics retrieves values for given metrics
-func (p *NetPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.PluginMetricType, error) {
+func (p *NetPlugin) CollectMetrics(mts []plugin.MetricType) ([]plugin.MetricType, error) {
 
 	// with which interfaces and what type of statistics are desired to be collected; avoid unnecessary command execution
 	iset := map[metricSource]bool{}
 
 	for _, mt := range mts {
-		src, _ := parseName(mt.Namespace())
+		src, _ := parseName(mt.Namespace().Strings())
 		iset[src] = true
 	}
 
@@ -106,23 +106,20 @@ func (p *NetPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.Plug
 		return nil, err
 	}
 
-	// it's not worth to abort collection when only os.Hostname() raised error
-	host, _ := os.Hostname()
 	t := time.Now()
 
-	results := make([]plugin.PluginMetricType, len(mts))
+	results := make([]plugin.MetricType, len(mts))
 
 	for i, mt := range mts {
-		src, metric := parseName(mt.Namespace())
+		src, metric := parseName(mt.Namespace().Strings())
 		val, ok := metrics[src][metric]
 		if !ok {
 			return nil, fmt.Errorf("unknown stat: %s on interface %s", metric, src.device)
 		}
 
-		results[i] = plugin.PluginMetricType{
+		results[i] = plugin.MetricType{
 			Namespace_: mt.Namespace(),
 			Data_:      val,
-			Source_:    host,
 			Timestamp_: t,
 		}
 	}
@@ -131,8 +128,8 @@ func (p *NetPlugin) CollectMetrics(mts []plugin.PluginMetricType) ([]plugin.Plug
 }
 
 // GetMetricTypes returns list of metrics. Metrics are put in namespaces {"intel", "net", DRIVER, INTERFACE, metrics...}
-func (p *NetPlugin) GetMetricTypes(cfg plugin.PluginConfigType) ([]plugin.PluginMetricType, error) {
-	mts := []plugin.PluginMetricType{}
+func (p *NetPlugin) GetMetricTypes(cfg plugin.ConfigType) ([]plugin.MetricType, error) {
+	mts := []plugin.MetricType{}
 
 	valid, err := p.mc.ValidMetrics()
 	if err != nil {
@@ -142,7 +139,7 @@ func (p *NetPlugin) GetMetricTypes(cfg plugin.PluginConfigType) ([]plugin.Plugin
 	for source, metrics := range valid {
 		for _, metric := range metrics {
 			ns := makeName(source, metric)
-			mts = append(mts, plugin.PluginMetricType{Namespace_: ns})
+			mts = append(mts, plugin.MetricType{Namespace_: core.NewNamespace(ns...)})
 		}
 	}
 

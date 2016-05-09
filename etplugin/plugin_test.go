@@ -21,11 +21,11 @@ package etplugin
 
 import (
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/intelsdi-x/snap/control/plugin"
 	"github.com/intelsdi-x/snap/control/plugin/cpolicy"
+	"github.com/intelsdi-x/snap/core"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/mock"
 )
@@ -53,11 +53,11 @@ func (mc *mcMock) Collect(iset map[metricSource]bool) (map[metricSource]map[stri
 	return r0, args.Error(1)
 }
 
-func flattenMts(mts []plugin.PluginMetricType) (map[string]interface{}, []string) {
+func flattenMts(mts []plugin.MetricType) (map[string]interface{}, []string) {
 	rl := make([]string, len(mts))
 	rm := map[string]interface{}{}
 	for i, mt := range mts {
-		ns := strings.Join(mt.Namespace(), "/")
+		ns := mt.Namespace().String()
 		rl[i] = ns
 		rm[ns] = mt.Data()
 	}
@@ -86,7 +86,7 @@ func TestPluginGetMetricTypes(t *testing.T) {
 				srcValid1Dom: []string{"s1", "s2"},
 			}, nil)
 
-			dut, dutErr := sut.GetMetricTypes(plugin.PluginConfigType{})
+			dut, dutErr := sut.GetMetricTypes(plugin.ConfigType{})
 
 			Convey("returns no error", func() {
 				So(dutErr, ShouldBeNil)
@@ -95,17 +95,17 @@ func TestPluginGetMetricTypes(t *testing.T) {
 			Convey("entire list is exposed", func() {
 				_, mts := flattenMts(dut)
 
-				So(mts, ShouldContain, "intel/net/ixgbe/eth0/nic/m1")
-				So(mts, ShouldContain, "intel/net/ixgbe/eth0/nic/m2")
+				So(mts, ShouldContain, "/intel/net/ixgbe/eth0/nic/m1")
+				So(mts, ShouldContain, "/intel/net/ixgbe/eth0/nic/m2")
 
-				So(mts, ShouldContain, "intel/net/e1000e/eth1/nic/m3")
-				So(mts, ShouldContain, "intel/net/e1000e/eth1/nic/m4")
+				So(mts, ShouldContain, "/intel/net/e1000e/eth1/nic/m3")
+				So(mts, ShouldContain, "/intel/net/e1000e/eth1/nic/m4")
 
-				So(mts, ShouldContain, "intel/net/ixgbe/eth0/reg/r1")
-				So(mts, ShouldContain, "intel/net/ixgbe/eth0/reg/r2")
+				So(mts, ShouldContain, "/intel/net/ixgbe/eth0/reg/r1")
+				So(mts, ShouldContain, "/intel/net/ixgbe/eth0/reg/r2")
 
-				So(mts, ShouldContain, "intel/net/ixgbe/eth0/dom/s1")
-				So(mts, ShouldContain, "intel/net/ixgbe/eth0/dom/s2")
+				So(mts, ShouldContain, "/intel/net/ixgbe/eth0/dom/s1")
+				So(mts, ShouldContain, "/intel/net/ixgbe/eth0/dom/s2")
 
 				Convey("and nothing more", func() {
 					// 8 metrics exposed
@@ -120,7 +120,7 @@ func TestPluginGetMetricTypes(t *testing.T) {
 
 			m.On("ValidMetrics").Return(nil, errors.New("x"))
 
-			dut, dutErr := sut.GetMetricTypes(plugin.PluginConfigType{})
+			dut, dutErr := sut.GetMetricTypes(plugin.ConfigType{})
 
 			So(dutErr, ShouldNotBeNil)
 			So(dut, ShouldBeNil)
@@ -136,18 +136,18 @@ func TestPluginCollectMetrics(t *testing.T) {
 		m := &mcMock{}
 		sut := NetPlugin{mc: m}
 
-		mts := []plugin.PluginMetricType{
-			plugin.PluginMetricType{Namespace_: []string{"intel", "net", "ixgbe", "eth0", "nic", "m1"}},
-			plugin.PluginMetricType{Namespace_: []string{"intel", "net", "ixgbe", "eth0", "nic", "m2"}},
+		mts := []plugin.MetricType{
+			plugin.MetricType{Namespace_: core.NewNamespace("intel", "net", "ixgbe", "eth0", "nic", "m1")},
+			plugin.MetricType{Namespace_: core.NewNamespace("intel", "net", "ixgbe", "eth0", "nic", "m2")},
 
-			plugin.PluginMetricType{Namespace_: []string{"intel", "net", "ixgbe", "eth0", "reg", "r1"}},
-			plugin.PluginMetricType{Namespace_: []string{"intel", "net", "ixgbe", "eth0", "reg", "r2"}},
+			plugin.MetricType{Namespace_: core.NewNamespace("intel", "net", "ixgbe", "eth0", "reg", "r1")},
+			plugin.MetricType{Namespace_: core.NewNamespace("intel", "net", "ixgbe", "eth0", "reg", "r2")},
 
-			plugin.PluginMetricType{Namespace_: []string{"intel", "net", "ixgbe", "eth0", "dom", "s1"}},
-			plugin.PluginMetricType{Namespace_: []string{"intel", "net", "ixgbe", "eth0", "dom", "s2"}},
+			plugin.MetricType{Namespace_: core.NewNamespace("intel", "net", "ixgbe", "eth0", "dom", "s1")},
+			plugin.MetricType{Namespace_: core.NewNamespace("intel", "net", "ixgbe", "eth0", "dom", "s2")},
 
-			plugin.PluginMetricType{Namespace_: []string{"intel", "net", "e1000e", "eth1", "nic", "m3"}},
-			plugin.PluginMetricType{Namespace_: []string{"intel", "net", "e1000e", "eth1", "nic", "m4"}},
+			plugin.MetricType{Namespace_: core.NewNamespace("intel", "net", "e1000e", "eth1", "nic", "m3")},
+			plugin.MetricType{Namespace_: core.NewNamespace("intel", "net", "e1000e", "eth1", "nic", "m4")},
 		}
 
 		Convey("asks metric collector about each required interface", func() {
@@ -175,17 +175,17 @@ func TestPluginCollectMetrics(t *testing.T) {
 				Convey("entire list is exposed", func() {
 					results, _ := flattenMts(dut)
 
-					So(results["intel/net/ixgbe/eth0/nic/m1"], ShouldEqual, "1")
-					So(results["intel/net/ixgbe/eth0/nic/m2"], ShouldEqual, "2")
+					So(results["/intel/net/ixgbe/eth0/nic/m1"], ShouldEqual, "1")
+					So(results["/intel/net/ixgbe/eth0/nic/m2"], ShouldEqual, "2")
 
-					So(results["intel/net/ixgbe/eth0/reg/r1"], ShouldEqual, "1")
-					So(results["intel/net/ixgbe/eth0/reg/r2"], ShouldEqual, "2")
+					So(results["/intel/net/ixgbe/eth0/reg/r1"], ShouldEqual, "1")
+					So(results["/intel/net/ixgbe/eth0/reg/r2"], ShouldEqual, "2")
 
-					So(results["intel/net/ixgbe/eth0/dom/s1"], ShouldEqual, "1")
-					So(results["intel/net/ixgbe/eth0/dom/s2"], ShouldEqual, "2")
+					So(results["/intel/net/ixgbe/eth0/dom/s1"], ShouldEqual, "1")
+					So(results["/intel/net/ixgbe/eth0/dom/s2"], ShouldEqual, "2")
 
-					So(results["intel/net/e1000e/eth1/nic/m3"], ShouldEqual, "3")
-					So(results["intel/net/e1000e/eth1/nic/m4"], ShouldEqual, "4")
+					So(results["/intel/net/e1000e/eth1/nic/m3"], ShouldEqual, "3")
+					So(results["/intel/net/e1000e/eth1/nic/m4"], ShouldEqual, "4")
 
 					Convey("and nothing more", func() {
 						So(len(dut), ShouldEqual, len(mts))
