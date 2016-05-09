@@ -16,7 +16,6 @@ package etplugin
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -107,19 +106,11 @@ func (p *NetPlugin) CollectMetrics(mts []plugin.MetricType) ([]plugin.MetricType
 		return nil, err
 	}
 
-	// it's not worth to abort collection when only os.Hostname() raised error
-	host, _ := os.Hostname()
 	t := time.Now()
 
 	results := make([]plugin.MetricType, len(mts))
 
 	for i, mt := range mts {
-		tags := mt.Tags()
-		if tags == nil {
-			tags = map[string]string{}
-		}
-		tags["hostname"] = host
-
 		src, metric := parseName(mt.Namespace().Strings())
 		val, ok := metrics[src][metric]
 		if !ok {
@@ -129,7 +120,6 @@ func (p *NetPlugin) CollectMetrics(mts []plugin.MetricType) ([]plugin.MetricType
 		results[i] = plugin.MetricType{
 			Namespace_: mt.Namespace(),
 			Data_:      val,
-			Tags_:      tags,
 			Timestamp_: t,
 		}
 	}
